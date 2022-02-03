@@ -1,37 +1,84 @@
 import requests
 import re
 from bs4 import BeautifulSoup
+import csv
 
-pagini = ["https://www.emag.ro/brands/televizoare/brand/samsung/c?ref=search_category_2",
-          "https://www.emag.ro/brands/telefoane-mobile/brand/samsung/c?ref=hp_menu_quick-nav_1_21&type=brand",
-          "https://www.emag.ro/brands/casti-audio-telefoane/brand/samsung/c?ref=search_category_3",
-          "https://www.emag.ro/brands/uscatoare-rufe/brand/samsung/c?ref=search_category_6",
-          "https://www.emag.ro/brands/soundbar/brand/samsung/c?ref=search_category_7"
-          ]
+tags = ["fotografie", 
+        "informatica", 
+        "televizor", 
+        "telefon", 
+        "laptop", 
+        "pc", 
+        "accesorii pc", 
+        "telefon", 
+        "accesorii smartphone",
+        "pictura",
+        "sneakers",
+        "tuxedo",]
 
-produse = []
- 
-titlu_produs = "card-v2-title"
-thumb_produs = "card-v2-thumb"
-pret_produs = "product-new-price"
+emag_pages = ["https://www.emag.ro/laptopuri/",
+              "https://www.emag.ro/label/Accesorii-Laptop/",
+              "https://www.emag.ro/label/telefoane-mobile-accesorii/Accesorii-telefoane/",
+              "https://www.emag.ro/telefoane-mobile/",
+              "https://www.emag.ro/tablete/",
+              "https://www.emag.ro/smartwatch/",
+              "https://www.emag.ro/bratari-fitness/",
+              "https://www.emag.ro/desktop-pc/",
+              "https://www.emag.ro/monitoare-lcd-led/",
+              "https://www.emag.ro/mouse/",
+              "https://www.emag.ro/tastaturi/",
+              "https://www.emag.ro/hard_disk-uri_externe/",
+              "https://www.emag.ro/casti-pc/",
+              "https://www.emag.ro/tablete-grafice/",
+              "https://www.emag.ro/memorii-usb/",
+              "https://www.emag.ro/televizoare/",
+              "https://www.emag.ro/audio-hi-fi/",
+              "https://www.emag.ro/home-cinema-blu-ray/",
+              ]
 
-for pagina in pagini:
-    pagina_html = requests.get(pagina)
-    soup_pagina = BeautifulSoup(pagina_html.content, 'html.parser')
+products = []
 
-    titluri = soup_pagina.find_all("a", class_=titlu_produs)
-    thumburi = soup_pagina.find_all("a", class_=thumb_produs)
-    preturi = soup_pagina.find_all("p", class_=pret_produs)
+def emag_search(url_list):
+    product_title_class = "card-v2-title"
+    product_thumb_class = "card-v2-thumb"
+    product_price_class = "product-new-price"
     
-    titluri_format = [titlu.get_text() for titlu in titluri]
-    imagini = [thumb.img.get('src') for thumb in thumburi]
-    preturi = [pret.get_text() for pret in preturi if pret.get_text() != '']
-
-    preturi_format = [pret[6:] if pret[:5] == "de la" else pret for pret in preturi]
-
-    preturi_format = ["{},{} {}".format(pret.split()[0][:-2], pret.split()[0][-2:], pret.split()[1]) for pret in preturi_format]
+    subpages_number_id = "listing-paginator"
     
-    produse += zip(titluri_format, imagini, preturi_format)
+    products = []
+
+    for url in url_list:
+        page_html = requests.get(url)
+        soup = BeautifulSoup(page_html.content, 'html.parser')
+        
+        num_of_pages = int(soup.find(id=subpages_number_id).span.get_text().split()[-1])
+        print(num_of_pages)
+        
+        for page_number in range(1, min(5, num_of_pages + 1)):
+            subpage_url = "{}p{}/c".format(url, page_number)
+            print("page is " + url + ", subpage is " + subpage_url)
+            subpage_html = requests.get(subpage_url)
+            subpage_soup = BeautifulSoup(subpage_html.content, 'html.parser')
+            
+            titles = subpage_soup.find_all("a", class_=product_title_class)
+            formatted_titles = [title.get_text() for title in titles]
+            
+            thumbs = subpage_soup.find_all("a", class_=product_thumb_class)
+            thumb_images = [thumb.img.get('src') for thumb in thumbs]
+            
+            prices = subpage_soup.find_all("p", class_=product_price_class)
+            prices = [price.get_text() for price in prices if price.get_text() != '']
+            prices = [price[6:] if price[:5] == 'de la' else price for price in prices]
+            formatted_prices = ["{},{} {}".format(price.split()[0][:-2], price.split()[0][-2:], price.split()[1]) for price in prices]
+  
+            products += zip(formatted_titles, thumb_images, formatted_prices)
+            
+            with(open('emag_products_lap_2.csv', 'w', encoding='utf-8', newline='')) as csv_file:
+                writer = csv.writer(csv_file)
+                for product in products:
+                    writer.writerow(product)
+    
+    return products
     
     
     
